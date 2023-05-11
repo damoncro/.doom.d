@@ -1,0 +1,333 @@
+name: Doom Development Build
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - README.md
+    tags:
+      - "v*.*.*"
+  pull_request:
+    paths-ignore:
+      - README.md
+
+jobs:
+  emacs_pac_on_arch:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout .doom.d repo
+      uses: actions/checkout@v3
+      with:
+        path: .doom.d
+        # token: ${{ secrets.GH_PAT }} # `GH_PAT` is a secret that contains your PAT
+        submodules: recursive
+
+    - name: enable native compile
+      run: python enable_nativecomp.py
+      working-directory: .doom.d
+
+    - name: Checkout doom emacs repo
+      uses: actions/checkout@v3
+      with:
+        repository: doomemacs/doomemacs
+        path: .emacs.d
+
+    # method 1: build with distrobox
+    - name: Setup Environments
+      run: |
+        curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix ~/.local
+        export PATH=$PATH:/home/runner/.local/bin
+        export DOOMDIR=${{ github.workspace }}/.doom.d
+        sudo apt update
+        sudo apt install podman -y
+        distrobox create -i docker.io/library/archlinux -n arch -Y
+        distrobox-enter arch -- sudo pacman -S git emacs-nativecomp --noconfirm
+        distrobox-enter arch -- .emacs.d/bin/doom sync
+
+    # # Testing: tmate
+    # - name: Setup tmate session
+    #   uses: mxschmitt/action-tmate@v3
+
+    # # method 2: build with docker
+    # - name: Setup Environments
+    #   run: |
+    #     sudo chmod 777 -R $GITHUB_WORKSPACE
+
+    # - uses: addnab/docker-run-action@v3
+    #   with:
+    #     registry: docker.io
+    #     image: docker.io/library/archlinux:latest
+    #     options: -v ${{ github.workspace }}/.doom.d:/root/.doom.d -v ${{ github.workspace }}/.emacs.d:/root/.emacs.d
+    #     run: |
+    #       pacman -Syu --noconfirm
+    #       pacman -S git emacs-nativecomp --noconfirm
+    #       chown root:root -R ~/.emacs.d/
+    #       ~/.emacs.d/bin/doom sync
+
+    # - name: Setup owner
+    #   run: |
+    #     sudo chown runner:docker -R .emacs.d/
+
+    # TODO
+    # - name: Test Emacs
+
+    - name: Package
+      run: |
+        PLATFORM="distrobox_arch_emacs28-nativecomp"
+        tar zcvf emacs.d_${PLATFORM}.tar.gz .emacs.d/
+        sha256sum *.tar.gz > "emacs.d_$PLATFORM.txt"
+        echo "release_file=emacs.d_$PLATFORM.tar.gz" >> $GITHUB_ENV
+        echo "checksum_file=emacs.d_$PLATFORM.txt" >> $GITHUB_ENV
+        cat $GITHUB_ENV
+        du -ch emacs.d_$PLATFORM.tar.gz
+
+    - name: Upload binary file and checksum file to Release
+      uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+      with:
+        draft: true
+        files: |
+          ${{ env.release_file }}
+          ${{ env.checksum_file }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  emacs_on_ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout .doom.d repo
+      uses: actions/checkout@v3
+      with:
+        path: .doom.d
+        # token: ${{ secrets.GH_PAT }} # `GH_PAT` is a secret that contains your PAT
+        submodules: recursive
+
+    - name: enable native compile
+      run: python enable_nativecomp.py
+      working-directory: .doom.d
+
+    - name: Checkout doom emacs repo
+      uses: actions/checkout@v3
+      with:
+        repository: doomemacs/doomemacs
+        path: .emacs.d
+
+    - name: Install emacs
+      run: |
+        sudo add-apt-repository ppa:kelleyk/emacs
+        sudo apt update
+        sudo apt install emacs28-nativecomp
+
+    - name: Build doom emacs
+      run: |
+        export DOOMDIR=${{ github.workspace }}/.doom.d
+        .emacs.d/bin/doom sync
+
+    # TODO
+    # - name: Test Emacs
+
+    - name: Package
+      run: |
+        PLATFORM="ubuntu_emacs28-nativecomp"
+        tar zcvf emacs.d_${PLATFORM}.tar.gz .emacs.d/
+        sha256sum *.tar.gz > "emacs.d_$PLATFORM.txt"
+        echo "release_file=emacs.d_$PLATFORM.tar.gz" >> $GITHUB_ENV
+        echo "checksum_file=emacs.d_$PLATFORM.txt" >> $GITHUB_ENV
+        cat $GITHUB_ENV
+        du -ch emacs.d_$PLATFORM.tar.gz
+
+    - name: Upload binary file and checksum file to Release
+      uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+      with:
+        draft: true
+        files: |
+          ${{ env.release_file }}
+          ${{ env.checksum_file }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  emacs_aur_on_arch:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout .doom.d repo
+      uses: actions/checkout@v3
+      with:
+        path: .doom.d
+        # token: ${{ secrets.GH_PAT }} # `GH_PAT` is a secret that contains your PAT
+        submodules: recursive
+
+    - name: Checkout doom emacs repo
+      uses: actions/checkout@v3
+      with:
+        repository: doomemacs/doomemacs
+        path: .emacs.d
+
+    - name: Setup Environments
+      run: |
+        curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix ~/.local
+        export PATH=$PATH:/home/runner/.local/bin
+        export DOOMDIR=${{ github.workspace }}/.doom.d
+        sudo apt update
+        sudo apt install podman -y
+        distrobox create -i docker.io/library/archlinux -n arch -Y
+        distrobox-enter arch -- sudo pacman -S --needed git base-devel --noconfirm
+        git clone https://aur.archlinux.org/yay.git
+        cd yay
+        distrobox-enter arch -- makepkg -si --noconfirm
+        distrobox-enter arch -- yay -S emacs29-git --noconfirm
+        cd ..
+        distrobox-enter arch -- .emacs.d/bin/doom sync
+
+    # TODO
+    # - name: Test Emacs
+
+    - name: Package
+      run: |
+        PLATFORM="distrobox_arch_aur_emacs29-git"
+        tar zcvf emacs.d_${PLATFORM}.tar.gz .emacs.d/
+        sha256sum *.tar.gz > "emacs.d_$PLATFORM.txt"
+        echo "release_file=emacs.d_$PLATFORM.tar.gz" >> $GITHUB_ENV
+        echo "checksum_file=emacs.d_$PLATFORM.txt" >> $GITHUB_ENV
+        cat $GITHUB_ENV
+        du -ch emacs.d_$PLATFORM.tar.gz
+
+    - name: Upload binary file and checksum file to Release
+      uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+      with:
+        draft: true
+        files: |
+          ${{ env.release_file }}
+          ${{ env.checksum_file }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  emacs-mac:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-13]
+    steps:
+    - name: Checkout .doom.d repo
+      uses: actions/checkout@v3
+      with:
+        path: .doom.d
+        # token: ${{ secrets.GH_PAT }} # `GH_PAT` is a secret that contains your PAT
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.8"
+
+    - name: enable native compile
+      run: python enable_nativecomp.py
+      working-directory: .doom.d
+
+    - name: Checkout doom emacs repo
+      uses: actions/checkout@v3
+      with:
+        repository: doomemacs/doomemacs
+        path: .emacs.d
+
+    - name: Install Emacs
+      run: |
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        brew tap railwaycat/emacsmacport
+        brew install emacs-mac --with-xwidgets --with-imagemagick --with-native-comp
+
+    - name: Build doom emacs
+      run: |
+        export DOOMDIR=${{ github.workspace }}/.doom.d
+        .emacs.d/bin/doom sync
+
+    # TODO
+    # - name: Test Emacs
+
+    - name: Package
+      run: |
+        PLATFORM="${{ matrix.os }}_emacs28-nativecomp"
+        tar zcvf emacs.d_${PLATFORM}.tar.gz .emacs.d/
+        shasum -a 256 *.tar.gz > "emacs.d_$PLATFORM.txt"
+        echo "release_file=emacs.d_$PLATFORM.tar.gz" >> $GITHUB_ENV
+        echo "checksum_file=emacs.d_$PLATFORM.txt" >> $GITHUB_ENV
+        cat $GITHUB_ENV
+        du -ch emacs.d_$PLATFORM.tar.gz
+
+    - name: Upload binaries and bindings to Release
+      uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+      with:
+        draft: true
+        files: |
+          ${{ env.release_file }}
+          ${{ env.checksum_file }}
+
+  windows:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2019]
+    steps:
+    - name: Checkout .doom.d repo
+      uses: actions/checkout@v3
+      with:
+        path: .doom.d
+        # token: ${{ secrets.GH_PAT }} # `GH_PAT` is a secret that contains your PAT
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.8"
+
+    - name: enable native compile
+      run: python enable_nativecomp.py
+      working-directory: .doom.d
+
+    - name: Checkout doom emacs repo
+      uses: actions/checkout@v3
+      with:
+        repository: doomemacs/doomemacs
+        path: .emacs.d
+
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        install: >-
+          git
+          base-devel
+          mingw-w64-x86_64-emacs
+
+    - name: Build doom emacs
+      shell: msys2 {0}
+      run: |
+        export DOOMDIR=${{ github.workspace }}/.doom.d
+        .emacs.d/bin/doom sync
+
+    # TODO
+    # - name: Test Emacs
+
+    - name: Pack binaries and bindings
+      shell: msys2 {0}
+      run: |
+        PLATFORM="windows"
+        7z a -tzip ../play_cpp_sdk_${PLATFORM}.zip .emacs.d
+        sha256sum *.zip > "checksums-$PLATFORM.txt"
+        echo "release_file=emacs.d_$PLATFORM.tar.gz" >> $GITHUB_ENV
+        echo "checksum_file=emacs.d_$PLATFORM.txt" >> $GITHUB_ENV
+        cat $GITHUB_ENV
+        du -ch emacs.d_$PLATFORM.tar.gz
+
+    - name: Upload binaries and bindings to Release
+      uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+      with:
+        draft: true
+        files: |
+          ${{ env.release_file }}
+          ${{ env.checksum_file }}
