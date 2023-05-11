@@ -45,30 +45,6 @@ jobs:
         distrobox-enter arch -- sudo pacman -S git emacs-nativecomp --noconfirm
         distrobox-enter arch -- .emacs.d/bin/doom sync
 
-    # # Testing: tmate
-    # - name: Setup tmate session
-    #   uses: mxschmitt/action-tmate@v3
-
-    # # method 2: build with docker
-    # - name: Setup Environments
-    #   run: |
-    #     sudo chmod 777 -R $GITHUB_WORKSPACE
-
-    # - uses: addnab/docker-run-action@v3
-    #   with:
-    #     registry: docker.io
-    #     image: docker.io/library/archlinux:latest
-    #     options: -v ${{ github.workspace }}/.doom.d:/root/.doom.d -v ${{ github.workspace }}/.emacs.d:/root/.emacs.d
-    #     run: |
-    #       pacman -Syu --noconfirm
-    #       pacman -S git emacs-nativecomp --noconfirm
-    #       chown root:root -R ~/.emacs.d/
-    #       ~/.emacs.d/bin/doom sync
-
-    # - name: Setup owner
-    #   run: |
-    #     sudo chown runner:docker -R .emacs.d/
-
     # TODO
     # - name: Test Emacs
 
