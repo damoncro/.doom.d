@@ -1,4 +1,4 @@
-name: Emacs Build
+name: Doom Development Build
 
 on:
   push:
