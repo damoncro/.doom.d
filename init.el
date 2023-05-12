@@ -192,3 +192,5 @@
        :config
        ;;literate
        (default +bindings +smartparens))
+
+(setq native-comp-deferred-compilation t)
