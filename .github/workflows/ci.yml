@@ -43,7 +43,7 @@ jobs:
         sudo apt install podman -y
         distrobox create -i docker.io/library/archlinux -n arch -Y
         distrobox-enter arch -- sudo pacman -S git emacs-nativecomp --noconfirm
-        distrobox-enter arch -- .emacs.d/bin/doom sync
+        distrobox-enter arch -- .emacs.d/bin/doom sync --force
 
     # TODO
     # - name: Test Emacs
@@ -98,7 +98,7 @@ jobs:
     - name: Build doom emacs
       run: |
         export DOOMDIR=${{ github.workspace }}/.doom.d
-        .emacs.d/bin/doom sync
+        .emacs.d/bin/doom sync --force
 
     # TODO
     # - name: Test Emacs
@@ -158,7 +158,7 @@ jobs:
         distrobox-enter arch -- makepkg -si --noconfirm
         distrobox-enter arch -- yay -S emacs29-git --noconfirm
         cd ..
-        distrobox-enter arch -- .emacs.d/bin/doom sync
+        distrobox-enter arch -- .emacs.d/bin/doom sync --force
 
     # TODO
     # - name: Test Emacs
@@ -218,7 +218,7 @@ jobs:
     - name: Build doom emacs
       run: |
         export DOOMDIR=${{ github.workspace }}/.doom.d
-        .emacs.d/bin/doom sync
+        .emacs.d/bin/doom sync --force
 
     # TODO
     # - name: Test Emacs
@@ -279,7 +279,7 @@ jobs:
       shell: msys2 {0}
       run: |
         export DOOMDIR=${{ github.workspace }}/.doom.d
-        .emacs.d/bin/doom sync
+        .emacs.d/bin/doom sync --force
 
     # TODO
     # - name: Test Emacs
